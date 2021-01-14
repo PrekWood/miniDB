@@ -1,49 +1,44 @@
 import hashlib
 
 
-class Hashlisted:
-    def __init__(self):
-        self.headval = None
-
-
-class Bucket:
-    def __init__(self, value = None):
-        self.value = None
-        self.next = None
-        self.hashfact = None
-
-
-
-list1 = SLinkedList()
-list1.headval = Node("Mon")
-e2 = Node("Tue")
-e3 = Node("Wed")
-# Link first Node to second node
-list1.headval.nextval = e2
-
-# Link second Node to third node
-e2.nextval = e3
-
-
-
 def hasfuct(i):
     return i % 2
 
 
-    hash_table = [[] for _ in range(2)]
-
-    data = {'25': 'USA',
-    '20': 'India',
-    '10': 'Nepal',
-    '22': 'Greece'}
-
-    for i in data:
-        bucket = hasfuct(int(i))
-        if len(hash_table[bucket]) == 2:
-            print("bucket :", bucket, " is full")
-        else:
-            hash_table[bucket].append(i)
-            print(hash_table)
+class Hashlisted:
+    def __init__(self):
+        self.headval = None  # root bucket
 
 
+class NodeBucket:
+    # every bucket has a list for the values and a list for the next buckets
+    def __init__(self, id, size=5, hashfact=2, value=None):
+        self.id = id                # id to recognize each bucket
+        self.value = value          # a list with indexes to the DB file
+        self.size = size            # how many id for the DB can handle
+        self.next = []              # for next linked bucket, this is for the overflow situation
+        self.hashfact = hashfact    # hash fuction for the next linked buckets
+
+    def find(self, value, hashfuct):
+        bucket = value % hashfuct
+        while True:
+            if self.next[bucket].next is None:
+                break
+        if value in self.next[bucket].value:
+            print("find it in bucket ", self.next[bucket].id)
+
+
+# make the list
+list1 = Hashlisted()
+# rout bucket is the node with id -1
+list1.headval = NodeBucket(-1)
+
+# create first bucket layer
+bucket2 = NodeBucket('1st', value=[9, 5])
+bucket1 = NodeBucket('1st', value=[2, 4])
+# connect these buckets to the root bucket with id = -1
+list1.headval.next.append(bucket1)
+list1.headval.next.append(bucket2)
+# try to create the find faction
+list1.headval.find(5, list1.headval.hashfact)
 # https://www.tutorialspoint.com/python_data_structure/python_linked_lists.htm
