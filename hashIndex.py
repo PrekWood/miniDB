@@ -4,15 +4,24 @@ from database import Database
 class Hashlisted:
     def __init__(self):
         self.headval = None  # root bucket
-        self.next = [NodeBucket()]
+
+
+class NodeBucket:
+    # every bucket has a list for the values and a list for the next buckets
+    def __init__(self, size=5, data=[]):
+        self.data = data  # a list with indexes to the DB file
+        self.size = size  # how many id for the DB can handle
+        self.next = []
 
     def insert(self, value):
-        i = len(self.next) - 1
-        if self.next[value % (2 ** i)].size > len(self.next[value % (2 ** i)].data):
-            self.next[value % (2 ** i)].data.append(value)
-            print(len(self.next[value % (2 ** i)].data))
+        if self.next == []:
+            self.next.append(NodeBucket())
+        exp = len(self.next) - 1
+        if self.next[int(value % (2 ** exp))].size > len(self.next[value % (2 ** exp)].data):
+            self.next[value % (2 ** exp)].data.append(value)
+            print(len(self.next[value % (2 ** exp)].data))
         else:
-            i += 1
+            exp += 1
             templist = []
             for y in self.next:
                 for k in y.data:
@@ -22,16 +31,9 @@ class Hashlisted:
             for y in self.next:
                 y.data.clear()
             for y in templist:
-                self.next[y % (2 ** i)].data.append(y)
+                self.next[y % (2 ** exp)].data.append(y)
             for i in self.next:
                 print(i.data)
-
-
-class NodeBucket:
-    # every bucket has a list for the values and a list for the next buckets
-    def __init__(self, size=5, data=[]):
-        self.data = data  # a list with indexes to the DB file
-        self.size = size  # how many id for the DB can handle
 
 
 # create a small table
@@ -40,15 +42,14 @@ name = "prekas"
 row = []
 for i in range(100):
     row.append([id + i, name + str(i)])
-backetlist = [NodeBucket()]
 l = Hashlisted()
 l.headval = NodeBucket()
-l.insert(row[0][0])
-l.insert(row[1][0])
-l.insert(row[2][0])
-l.insert(row[3][0])
-l.insert(row[4][0])
-l.insert(row[5][0])
+l.headval.insert(row[0][0])
+l.headval.insert(row[1][0])
+l.headval.insert(row[2][0])
+l.headval.insert(row[3][0])
+l.headval.insert(row[4][0])
+l.headval.insert(row[5][0])
 '''
     def __hashfuction__(self, value):
         return value % self.hashfact
