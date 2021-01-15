@@ -1,19 +1,55 @@
+from database import Database
+
+
 class Hashlisted:
     def __init__(self):
         self.headval = None  # root bucket
+        self.next = [NodeBucket()]
+
+    def insert(self, value):
+        i = len(self.next) - 1
+        if self.next[value % (2 ** i)].size > len(self.next[value % (2 ** i)].data):
+            self.next[value % (2 ** i)].data.append(value)
+            print(len(self.next[value % (2 ** i)].data))
+        else:
+            i += 1
+            templist = []
+            for y in self.next:
+                for k in y.data:
+                    templist.append(k)
+            templist.append(value)
+            self.next.append(NodeBucket())
+            for y in self.next:
+                y.data.clear()
+            for y in templist:
+                self.next[y % (2 ** i)].data.append(y)
+            for i in self.next:
+                print(i.data)
 
 
 class NodeBucket:
     # every bucket has a list for the values and a list for the next buckets
-    def __init__(self, id, size=2, hashfact=3, value=[], maxhashfaction=10, isleaf=True):
-        self.id = id  # id to recognize each bucket
-        self.value = value  # a list with indexes to the DB file
+    def __init__(self, size=5, data=[]):
+        self.data = data  # a list with indexes to the DB file
         self.size = size  # how many id for the DB can handle
-        self.next = []  # for next linked bucket, this is for the overflow situation
-        self.hashfact = hashfact  # hash faction for the next linked buckets
-        self.maxhashfaction = maxhashfaction  # maximum buckets that can create a single bucket after overflow
-        self.isleaf = isleaf
 
+
+# create a small table
+id = 0
+name = "prekas"
+row = []
+for i in range(100):
+    row.append([id + i, name + str(i)])
+backetlist = [NodeBucket()]
+l = Hashlisted()
+l.headval = NodeBucket()
+l.insert(row[0][0])
+l.insert(row[1][0])
+l.insert(row[2][0])
+l.insert(row[3][0])
+l.insert(row[4][0])
+l.insert(row[5][0])
+'''
     def __hashfuction__(self, value):
         return value % self.hashfact
 
@@ -93,3 +129,4 @@ def testinstert():
 # testfind()
 testinstert()
 # https://www.tutorialspoint.com/python_data_structure/python_linked_lists.htm
+'''
