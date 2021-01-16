@@ -1,4 +1,5 @@
 from database import Database
+from hash_index import HashIndex
 def main():
     db = Database("test_db", True)
     # db.create_table("users", ["id","name"], [int,str])
@@ -14,5 +15,19 @@ def main():
     db.select("teachers", "*")
 
 
+    h = HashIndex(db)
+
+
 if __name__ == "__main__":
     main()
+
+
+
+
+# rootBucket.next
+# [[]]),Bucket(),Bucket(),Bucket(),Bucket()]
+# Bucket() := data,maxelemet
+
+bucketlist = []
+
+[[],[],[],[]]
