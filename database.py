@@ -378,12 +378,29 @@ class Database:
         save_as -> The name that will be used to save the resulting table in the database. Def: None (no save)
         return_object -> If true, the result will be a table object (usefull for internal usage). Def: False (the result will be printed)
         '''
+        condition_column = None
         self.load(self.savedir)
         if self.is_locked(left_table_name) or self.is_locked(right_table_name):
             print(f'Table/Tables are currently locked')
             return
 
         res = self.tables[left_table_name]._inner_join(self.tables[right_table_name], condition)
+        '''
+        # -----------------------------------
+        # check if the left table has hash index
+        if self._has_index(left_table_name) and condition_column == self.tables[left_table_name].column_names[
+            self.tables[left_table_name].pk_idx]:
+            index_name_left = self.select('meta_indexes', '*', f'table_name=={left_table_name}', return_object=True).index_name[:]
+            # check if the right table has hash index
+            if  self._has_index(right_table_name) and condition_column == self.tables[right_table_name].column_names[
+            self.tables[right_table_name].pk_idx]:
+                index_name_right = self.select('meta_indexes', '*', f'table_name=={right_table_name}', return_object=True).index_name[:]
+                if "hashindex" in index_name_left and "hashindex" in index_name_right:
+                    # load the Hash Index object
+                    hi = self._load_idx("hashindex")
+                    # table = self.tables[table_name]._select_where_with_hashindexing(hi, columns, condition)
+        # ------------------------------
+        '''
         if save_as is not None:
             res._name = save_as
             self.table_from_object(res)
