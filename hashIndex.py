@@ -1,12 +1,8 @@
 def convert_str_to_int(value):
-    try:
-        int(value)
-        return value
-    except:
-        sum = 0
-        for i in value:
-            sum += ord(i)
-        return sum
+    sum = 0
+    for i in value:
+        sum += ord(i)
+    return sum
 
 
 class HashIndex:

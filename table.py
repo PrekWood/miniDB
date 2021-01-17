@@ -212,7 +212,7 @@ class Table:
         else:
             return Table(load=dict).order_by(order_by, asc)
 
-    def _select_where_with_hashindexing(self, hi, return_columns, condition):
+    def _select_where_with_hashindexing(self, hi, return_columns, condition, top_k=None):
         # if * return all columns, else find the column indexes for the columns specified
         if return_columns == '*':
             return_cols = [i for i in range(len(self.column_names))]
@@ -248,7 +248,6 @@ class Table:
         print(rows)
 
         # same as simple select from now on
-        rows = rows[:None]
         dict = {(key): ([[self.data[i][j] for j in return_cols] for i in rows] if key == "data" else value) for
                 key, value in self.__dict__.items()}
 
