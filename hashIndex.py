@@ -1,10 +1,17 @@
-from database import Database
+def convert_str_to_int(value):
+    try:
+        int(value)
+        return value
+    except:
+        sum = 0
+        for i in value:
+            sum += ord(i)
+        return sum
 
 
 class HashIndex:
 
-    def __init__(self, db, max_bucket_size=5):
-        self.db = db
+    def __init__(self, max_bucket_size=5):
         self.max_bucket_size = max_bucket_size
         self.bucketlist = [[]]
         self.row = []
@@ -15,9 +22,9 @@ class HashIndex:
         # we insert a list with the data for the hashing and the pointer
         # to the db
         for i in range(len(data)):
-            self.insert([data,i])
+            self.insert([data, i])
 
-    def __balancebuckets__(self, value):
+    def __balancebuckets__(self, value, idx):
         # the templist has all the values from the bucket
         self.count_buckets += 1
         templist = []
@@ -26,7 +33,7 @@ class HashIndex:
                 templist.append(data)
 
         # we add the value (this was the reason for overflow)
-        templist.append(value)
+        templist.append([value, idx])
 
         # we clear the buckets
         self.bucketlist.clear()
@@ -41,14 +48,18 @@ class HashIndex:
             self.bucketlist[value[0] % (2 ** self.count_buckets)].append(value)
         return self.bucketlist
 
-    def insert(self, value):
+    def insert(self, value, idx):
+        # if the value is string
+        if type(value) == str:
+            value = convert_str_to_int(value)
         # if the bucket is not full insert the element
         try:
-            if len(self.bucketlist[value[0] % (2 ** self.count_buckets)]) < self.max_bucket_size:
-                self.bucketlist[value[0] % (2 ** self.count_buckets)].append(value)
+            if len(self.bucketlist[value % (2 ** self.count_buckets)]) < self.max_bucket_size:
+                self.bucketlist[value % (2 ** self.count_buckets)].append([value, idx])
             else:
                 # if is full create new buckets and balance the elements
-                self.bucketlist = self.__balancebuckets__(value)
+                self.bucketlist = self.__balancebuckets__(value, idx)
+            print(self.bucketlist)
             return self.bucketlist
         except:
             print("Error with insert")
@@ -59,15 +70,3 @@ class HashIndex:
             return
         if value in self.bucketlist[value % len(self.bucketlist)][0]:
             return self.row[value]
-
-
-db = Database("test_db", True)
-h = HashIndex("asd")
-# db.create_index()
-h.create_hashtable([db.select("users", "id", "*")])
-
-print("~~BUCKET LIST~~")
-print(h.bucketlist)
-# insert a value
-value = 10
-print("find the value ", value, " is the row", h.find(value))
