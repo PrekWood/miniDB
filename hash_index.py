@@ -16,8 +16,7 @@ class Bucket:
         self.size = sys.getsizeof(self.data)
 
 class HashIndex:
-
-    def __init__(self, db, max_bucket_size=5):
+    def __init__(self, db, max_bucket_size=64):
         # todo: rename count_buckets σε κάτι σαν hashfunctionN γιατι δεν ειναι όντως το count των buckets αλλα το %2^n της hashing function
         # todo: address table συζητηση
 
