@@ -309,9 +309,21 @@ class Database:
             condition_column = split_condition(condition)[0]
         if self._has_index(table_name) and condition_column == self.tables[table_name].column_names[
             self.tables[table_name].pk_idx]:
-            index_name = self.select('meta_indexes', '*', f'table_name=={table_name}', return_object=True).index_name[0]
-            bt = self._load_idx(index_name)
-            table = self.tables[table_name]._select_where_with_btree(columns, bt, condition, order_by, asc, top_k)
+            index_name = self.select('meta_indexes', '*', f'table_name=={table_name}', return_object=True).index_name[:]
+
+            # ------------------
+            # i break here the condition because the hash table indexing
+            # is capable to handle only equation
+            column_name, operator, value = self.tables[table_name]._parse_condition(condition)
+            # checking the indexes that we have and we choose the better solution
+            if "hashindex" in index_name and operator == "==":
+                # load the Hash Index object
+                hi = self._load_idx("hashindex")
+                table = self.tables[table_name]._select_where_with_hashindexing(hi, columns, condition)
+            if "btree" in index_name:
+                bt = self._load_idx("btree")
+                table = self.tables[table_name]._select_where_with_btree(columns, bt, condition, order_by, asc, top_k)
+            # ---------------------
         else:
             table = self.tables[table_name]._select_where(columns, condition, order_by, asc, top_k)
         self.unlock_table(table_name)
@@ -543,11 +555,10 @@ class Database:
                 table_name -> table's name (needs to exist in database)
                 index_name -> name of the created index
                 '''
-        h = HashIndex(5)
+        h = HashIndex(8)
         # for each record in the primary key of the table, insert its value and index to the btree
         for idx, key in enumerate(self.tables[table_name].columns[self.tables[table_name].pk_idx]):
             h.insert(key, idx)
-            print("key: ", key, "|", "inx: ", idx)
         # save the btree
         self._save_index(index_name, h)
 

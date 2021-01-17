@@ -17,13 +17,6 @@ class HashIndex:
         self.row = []
         self.count_buckets = 0
 
-    def create_hashtable(self, data):
-        # loop through tables and create hash indexes
-        # we insert a list with the data for the hashing and the pointer
-        # to the db
-        for i in range(len(data)):
-            self.insert([data, i])
-
     def __balancebuckets__(self, value, idx):
         # the templist has all the values from the bucket
         self.count_buckets += 1
@@ -68,5 +61,10 @@ class HashIndex:
         if self.bucketlist == [[]]:
             print("Hash Table is empty, create first")
             return
-        if value in self.bucketlist[value % len(self.bucketlist)][0]:
-            return self.row[value]
+        else:
+            if type(value) == str:
+                value = convert_str_to_int(value)
+            # finds the right bucket and search every column-list
+            for data in self.bucketlist[value % len(self.bucketlist)]:
+                if value in data:
+                    return [data[1]]

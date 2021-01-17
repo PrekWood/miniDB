@@ -1,8 +1,7 @@
 from database import Database
 
-
-db = Database("test", True)
-db.create_table('department', ['dept_name', 'building', 'budget'], [str,str,int], primary_key='dept_name')
+db = Database("test1", False)
+db.create_table('department', ['dept_name', 'building', 'budget'], [str, str, int], primary_key='dept_name')
 db.insert('department', ['Civil Eng.', 'Chandler', 255041.46])
 db.insert('department', ['Biology', 'Candlestick', 647610.55])
 db.insert('department', ['History', 'Taylor', 699140.86])
@@ -23,5 +22,10 @@ db.insert('department', ['Psychology', 'Thompson', 848175.04])
 db.insert('department', ['Math', 'Brodhead', 777605.11])
 db.insert('department', ['Elec. Eng.', 'Main', 276527.61])
 db.insert('department', ['Mech. Eng.', 'Rauch', 520350.65])
-db.show_table('department')
-db.create_index('department',index_name="pointer",index_type="HashIndex")
+print("department ok")
+print("-----------------------------")
+print("Create hash index")
+db.create_index('department', index_name="hashindex", index_type="HashIndex")
+print("-----------------------------")
+print("Search with hash index")
+db.select('department', '*', 'dept_name==Math')

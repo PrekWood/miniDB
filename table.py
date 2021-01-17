@@ -1,10 +1,12 @@
 from __future__ import annotations
 from tabulate import tabulate
+from hashIndex import HashIndex
 import pickle
 import os
 from misc import get_op, split_condition
 
-#test
+
+# test
 
 class Table:
     '''
@@ -23,6 +25,7 @@ class Table:
             - a dictionary that includes the appropriate info (all the attributes in __init__)
 
     '''
+
     def __init__(self, name=None, column_names=None, column_types=None, primary_key=None, load=None):
 
         if load is not None:
@@ -39,7 +42,7 @@ class Table:
 
             self._name = name
 
-            if len(column_names)!=len(column_types):
+            if len(column_names) != len(column_types):
                 raise ValueError('Need same number of column names and types.')
 
             self.column_names = column_names
@@ -57,7 +60,7 @@ class Table:
 
             self.column_types = column_types
             self._no_of_columns = len(column_names)
-            self.data = [] # data is a list of lists, a list of rows that is.
+            self.data = []  # data is a list of lists, a list of rows that is.
 
             # if primary key is set, keep its index as an attribute
             if primary_key is not None:
@@ -65,11 +68,9 @@ class Table:
             else:
                 self.pk_idx = None
 
-
             self._update()
 
     # if any of the name, columns_names and column types are none. return an empty table object
-
 
     def _update(self):
         '''
@@ -92,12 +93,11 @@ class Table:
         self.column_types[column_idx] = cast_type
         self._update()
 
-
     def _insert(self, row, insert_stack=[]):
         '''
         Insert row to table
         '''
-        if len(row)!=self._no_of_columns:
+        if len(row) != self._no_of_columns:
             raise ValueError(f'ERROR -> Cannot insert {len(row)} values. Only {self._no_of_columns} columns exist')
 
         for i in range(len(row)):
@@ -109,13 +109,13 @@ class Table:
                 raise ValueError(f'ERROR -> Value {row[i]} is not of type {self.column_types[i]}.')
 
             # if value is to be appended to the primary_key column, check that it doesnt alrady exist (no duplicate primary keys)
-            if i==self.pk_idx and row[i] in self.columns[self.pk_idx]:
+            if i == self.pk_idx and row[i] in self.columns[self.pk_idx]:
                 raise ValueError(f'## ERROR -> Value {row[i]} already exists in primary key column.')
 
         # if insert_stack is not empty, append to its last index
         if insert_stack != []:
             self.data[insert_stack[-1]] = row
-        else: # else append to the end
+        else:  # else append to the end
             self.data.append(row)
         self._update()
 
@@ -138,8 +138,7 @@ class Table:
                 self.data[row_ind][set_column_idx] = set_value
 
         self._update()
-                # print(f"Updated {len(indexes_to_del)} rows")
-
+        # print(f"Updated {len(indexes_to_del)} rows")
 
     def _delete_where(self, condition):
         '''
@@ -172,7 +171,6 @@ class Table:
         # we have to return the deleted indexes, since they will be appended to the insert_stack
         return indexes_to_del
 
-
     def _select_where(self, return_columns, condition=None, order_by=None, asc=False, top_k=None):
         '''
         Select and return a table containing specified columns and rows where condition is met
@@ -182,7 +180,8 @@ class Table:
         if return_columns == '*':
             return_cols = [i for i in range(len(self.column_names))]
         elif isinstance(return_columns, str):
-            raise Exception(f'Return columns should be "*" or of type list. (the second parameter is return_columns not condition)')
+            raise Exception(
+                f'Return columns should be "*" or of type list. (the second parameter is return_columns not condition)')
         else:
             return_cols = [self.column_names.index(colname) for colname in return_columns]
 
@@ -198,12 +197,13 @@ class Table:
         # top k rows
         rows = rows[:top_k]
         # copy the old dict, but only the rows and columns of data with index in rows/columns (the indexes that we want returned)
-        dict = {(key):([[self.data[i][j] for j in return_cols] for i in rows] if key=="data" else value) for key,value in self.__dict__.items()}
+        dict = {(key): ([[self.data[i][j] for j in return_cols] for i in rows] if key == "data" else value) for
+                key, value in self.__dict__.items()}
 
         # we need to set the new column names/types and no of columns, since we might
         # only return some columns
         dict['column_names'] = [self.column_names[i] for i in return_cols]
-        dict['column_types']   = [self.column_types[i] for i in return_cols]
+        dict['column_types'] = [self.column_types[i] for i in return_cols]
         dict['_no_of_columns'] = len(return_cols)
 
         # order by the return table if specified
@@ -212,15 +212,12 @@ class Table:
         else:
             return Table(load=dict).order_by(order_by, asc)
 
-
-    def _select_where_with_btree(self, return_columns, bt, condition, order_by=None, asc=False, top_k=None):
-
+    def _select_where_with_hashindexing(self, hi, return_columns, condition):
         # if * return all columns, else find the column indexes for the columns specified
         if return_columns == '*':
             return_cols = [i for i in range(len(self.column_names))]
         else:
             return_cols = [self.column_names.index(colname) for colname in return_columns]
-
 
         column_name, operator, value = self._parse_condition(condition)
 
@@ -238,7 +235,54 @@ class Table:
         rows1 = []
         opsseq = 0
         for ind, x in enumerate(column):
-            opsseq+=1
+            opsseq += 1
+            if get_op(operator, x, value):
+                rows1.append(ind)
+
+        print(f'Without Hash Index -> {opsseq} comparison operations')
+        # Hash Index find
+        rows = hi.find(value)
+        print('### Seq result ###')
+        print(rows1)
+        print('### Index result ###')
+        print(rows)
+
+        # same as simple select from now on
+        rows = rows[:None]
+        dict = {(key): ([[self.data[i][j] for j in return_cols] for i in rows] if key == "data" else value) for
+                key, value in self.__dict__.items()}
+
+        dict['column_names'] = [self.column_names[i] for i in return_cols]
+        dict['column_types'] = [self.column_types[i] for i in return_cols]
+        dict['_no_of_columns'] = len(return_cols)
+
+        return Table(load=dict)
+
+    def _select_where_with_btree(self, return_columns, bt, condition, order_by=None, asc=False, top_k=None):
+
+        # if * return all columns, else find the column indexes for the columns specified
+        if return_columns == '*':
+            return_cols = [i for i in range(len(self.column_names))]
+        else:
+            return_cols = [self.column_names.index(colname) for colname in return_columns]
+
+        column_name, operator, value = self._parse_condition(condition)
+
+        print("1: ", type(value), " 2: ", self.column_types[self.column_names.index(column_name)])
+
+        # if the column in condition is not a primary key, abort the select
+        if column_name != self.column_names[self.pk_idx]:
+            print('Column is not PK. Aborting')
+
+        # here we run the same select twice, sequentially and using the btree.
+        # we then check the results match and compare performance (number of operation)
+        column = self.columns[self.column_names.index(column_name)]
+
+        # sequential
+        rows1 = []
+        opsseq = 0
+        for ind, x in enumerate(column):
+            opsseq += 1
             if get_op(operator, x, value):
                 rows1.append(ind)
 
@@ -253,17 +297,17 @@ class Table:
         # same as simple select from now on
         rows = rows[:top_k]
         # TODO: this needs to be dumbed down
-        dict = {(key):([[self.data[i][j] for j in return_cols] for i in rows] if key=="data" else value) for key,value in self.__dict__.items()}
+        dict = {(key): ([[self.data[i][j] for j in return_cols] for i in rows] if key == "data" else value) for
+                key, value in self.__dict__.items()}
 
         dict['column_names'] = [self.column_names[i] for i in return_cols]
-        dict['column_types']   = [self.column_types[i] for i in return_cols]
+        dict['column_types'] = [self.column_types[i] for i in return_cols]
         dict['_no_of_columns'] = len(return_cols)
 
         if order_by is None:
             return Table(load=dict)
         else:
             return Table(load=dict).order_by(order_by, asc)
-
 
     def order_by(self, column_name, asc=False):
         '''
@@ -273,9 +317,9 @@ class Table:
         column = self.columns[self.column_names.index(column_name)]
         idx = sorted(range(len(column)), key=lambda k: column[k], reverse=not asc)
         # return table but arange data using idx list (sorted indexes)
-        dict = {(key):([self.data[i] for i in idx] if key=="data" else value) for key, value in self.__dict__.items()}
+        dict = {(key): ([self.data[i] for i in idx] if key == "data" else value) for key, value in
+                self.__dict__.items()}
         return Table(load=dict)
-
 
     def _sort(self, column_name, asc=False):
         '''
@@ -286,7 +330,6 @@ class Table:
         # print(idx)
         self.data = [self.data[i] for i in idx]
         self._update()
-
 
     def _inner_join(self, table_right: Table, condition):
         '''
@@ -308,9 +351,9 @@ class Table:
 
         # define the new tables name, its column names and types
         join_table_name = f'{self._name}_join_{table_right._name}'
-        join_table_colnames = left_names+right_names
-        join_table_coltypes = self.column_types+table_right.column_types
-        join_table = Table(name=join_table_name, column_names=join_table_colnames, column_types= join_table_coltypes)
+        join_table_colnames = left_names + right_names
+        join_table_coltypes = self.column_types + table_right.column_types
+        join_table = Table(name=join_table_name, column_names=join_table_colnames, column_types=join_table_coltypes)
 
         # count the number of operations (<,> etc)
         no_of_ops = 0
@@ -320,16 +363,15 @@ class Table:
             left_value = row_left[column_index_left]
             for row_right in table_right.data:
                 right_value = row_right[column_index_right]
-                no_of_ops+=1
-                if get_op(operator, left_value, right_value): #EQ_OP
-                    join_table._insert(row_left+row_right)
+                no_of_ops += 1
+                if get_op(operator, left_value, right_value):  # EQ_OP
+                    join_table._insert(row_left + row_right)
 
         print(f'## Select ops no. -> {no_of_ops}')
         print(f'# Left table size -> {len(self.data)}')
         print(f'# Right table size -> {len(table_right.data)}')
 
         return join_table
-
 
     def show(self, no_of_rows=None, is_locked=False):
         '''
@@ -345,13 +387,12 @@ class Table:
         headers = [f'{col} ({tp.__name__})' for col, tp in zip(self.column_names, self.column_types)]
         if self.pk_idx is not None:
             # table has a primary key, add PK next to the appropriate column
-            headers[self.pk_idx] = headers[self.pk_idx]+' #PK#'
+            headers[self.pk_idx] = headers[self.pk_idx] + ' #PK#'
         # detect the rows that are no tfull of nones (these rows have been deleted)
         # if we dont skip these rows, the returning table has empty rows at the deleted positions
         non_none_rows = [row for row in self.data if any(row)]
         # print using tabulate
-        print(tabulate(non_none_rows[:no_of_rows], headers=headers)+'\n')
-
+        print(tabulate(non_none_rows[:no_of_rows], headers=headers) + '\n')
 
     def _parse_condition(self, condition, join=False):
         '''
@@ -368,7 +409,6 @@ class Table:
         coltype = self.column_types[self.column_names.index(left)]
 
         return left, op, coltype(right)
-
 
     def _load_from_file(self, filename):
         '''
