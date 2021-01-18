@@ -1,8 +1,11 @@
 def convert_str_to_int(value):
-    sum = 0
-    for i in value:
-        sum += ord(i)
-    return sum
+    try:
+        return int(value)
+    except:
+        sum = 0
+        for i in value:
+            sum += ord(i)
+        return sum
 
 
 class HashIndex:
@@ -61,6 +64,8 @@ class HashIndex:
             if type(value) == str:
                 value = convert_str_to_int(value)
             # finds the right bucket and search every column-list
+            idx = []
             for data in self.bucketlist[value % len(self.bucketlist)]:
                 if value in data:
-                    return [data[1]]
+                    idx.append(data[1])
+            return idx

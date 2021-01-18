@@ -301,6 +301,7 @@ class Database:
         return_object -> If true, the result will be a table object (usefull for internal usage). Def: False (the result will be printed)
 
         '''
+        global condition_column
         self.load(self.savedir)
         if self.is_locked(table_name):
             return
@@ -316,12 +317,12 @@ class Database:
             # is capable to handle only equation
             column_name, operator, value = self.tables[table_name]._parse_condition(condition)
             # checking the indexes that we have and we choose the better solution
-            if "hashindex" in index_name and operator == "==":
+            if table_name+"-hashindex" in index_name and operator == "==":
                 # load the Hash Index object
-                hi = self._load_idx("hashindex")
+                hi = self._load_idx(table_name+"hashindex")
                 table = self.tables[table_name]._select_where_with_hashindexing(hi, columns, condition)
-            if "btree" in index_name:
-                bt = self._load_idx("btree")
+            if table_name+"btree" in index_name:
+                bt = self._load_idx(table_name+"btree")
                 table = self.tables[table_name]._select_where_with_btree(columns, bt, condition, order_by, asc, top_k)
             # ---------------------
         else:
@@ -385,6 +386,14 @@ class Database:
             return
 
         res = self.tables[left_table_name]._inner_join(self.tables[right_table_name], condition)
+        # ---
+        # TODO: Check the left and the right table for has index
+        # best way is to do the same as select
+        # 1.check
+        # 2.load the object-HashIndex
+        # 3.find the same values for primary keys for both tables
+        # 4.print a table with the fields from tow tables
+        # ---
         '''
         # -----------------------------------
         # check if the left table has hash index
