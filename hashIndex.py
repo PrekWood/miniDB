@@ -51,7 +51,6 @@ class HashIndex:
             else:
                 # if is full create new buckets and balance the elements
                 self.bucketlist = self.__balancebuckets__(value, idx)
-            print(self.bucketlist)
             return self.bucketlist
         except:
             print("Error with insert")

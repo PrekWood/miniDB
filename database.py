@@ -317,12 +317,12 @@ class Database:
             # is capable to handle only equation
             column_name, operator, value = self.tables[table_name]._parse_condition(condition)
             # checking the indexes that we have and we choose the better solution
-            if table_name+"-hashindex" in index_name and operator == "==":
+            if table_name+"HashIndex" in index_name and operator == "==":
                 # load the Hash Index object
-                hi = self._load_idx(table_name+"hashindex")
+                hi = self._load_idx(table_name+"HashIndex")
                 table = self.tables[table_name]._select_where_with_hashindexing(hi, columns, condition)
-            if table_name+"btree" in index_name:
-                bt = self._load_idx(table_name+"btree")
+            elif table_name+"Btree" in index_name:
+                bt = self._load_idx(table_name+"Btree")
                 table = self.tables[table_name]._select_where_with_btree(columns, bt, condition, order_by, asc, top_k)
             # ---------------------
         else:
@@ -537,7 +537,12 @@ class Database:
         self.tables['meta_insert_stack']._update_row(new_stack, 'indexes', f'table_name=={table_name}')
 
     # indexes
-    def create_index(self, table_name, index_name, index_type='Btree'):
+    # <!> Ilias <!>
+    # i change the arguments for create index
+    # now automatically with the name of the table and the type of indexing you want
+    # you create the tables
+    # i did it because the a loose the index name of each type of index for each table
+    def create_index(self, table_name, index_type='Btree'):
         '''
         Create an index on a specified table with a given name.
         Important: An index can only be created on a primary key. Thus the user does not specify the column
@@ -548,6 +553,7 @@ class Database:
         if self.tables[table_name].pk_idx is None:  # if no primary key, no index
             print('## ERROR - Cant create index. Table has no primary key.')
             return
+        index_name = table_name+index_type
         if index_name not in self.tables['meta_indexes'].index_name:
             # currently only btree is supported. This can be changed by adding another if.
             if index_type == 'Btree':
