@@ -42,7 +42,11 @@ class Database:
         self.create_table('meta_length', ['table_name', 'no_of_rows'], [str, int])
         self.create_table('meta_locks', ['table_name', 'locked'], [str, bool])
         self.create_table('meta_insert_stack', ['table_name', 'indexes'], [str, list])
-        self.create_table('meta_indexes', ['table_name', 'index_name'], [str, str])
+        # meta_indexes changed
+        # Now it has table_name, column of the table, index_name and the type of the index
+        # this change was necessary because we had problem
+        # when a table has more than one index or different type of index
+        self.create_table('meta_indexes', ['table_name', 'column', 'index_name', 'index_type'], [str, str, str, str])
         self.save()
 
     def save(self):
@@ -301,30 +305,44 @@ class Database:
         return_object -> If true, the result will be a table object (usefull for internal usage). Def: False (the result will be printed)
 
         '''
-        global condition_column
         self.load(self.savedir)
         if self.is_locked(table_name):
             return
         self.lockX_table(table_name)
-        if condition is not None:
-            condition_column = split_condition(condition)[0]
-        if self._has_index(table_name) and condition_column == self.tables[table_name].column_names[
-            self.tables[table_name].pk_idx]:
-            index_name = self.select('meta_indexes', '*', f'table_name=={table_name}', return_object=True).index_name[:]
-
-            # ------------------
-            # i break here the condition because the hash table indexing
-            # is capable to handle only equation
-            column_name, operator, value = self.tables[table_name]._parse_condition(condition)
-            # checking the indexes that we have and we choose the better solution
-            if table_name+"HashIndex" in index_name and operator == "==":
-                # load the Hash Index object
-                hi = self._load_idx(table_name+"HashIndex")
-                table = self.tables[table_name]._select_where_with_hashindexing(hi, columns, condition)
-            elif table_name+"Btree" in index_name:
-                bt = self._load_idx(table_name+"Btree")
-                table = self.tables[table_name]._select_where_with_btree(columns, bt, condition, order_by, asc, top_k)
-            # ---------------------
+        condition_left = operator = condition_right = None
+        # check if the table has index and if we have condition
+        if condition is not None and self._has_index(table_name):
+            # break the condition
+            condition_left, operator, condition_right = split_condition(condition)
+            # colecte all the indexes from the the specific table
+            index_name = self.select('meta_indexes', '*', f'table_name=={table_name}', return_object=True).data
+            # check all the possibilities for indexing:
+            # ~btree can handle only the primary key
+            # ~hash indexing can handle only equal operator
+            # if the condition is about the primary key
+            if condition_left == self.tables[table_name].column_names[self.tables[table_name].pk_idx] \
+                    or condition_right == self.tables[table_name].column_names[self.tables[table_name].pk_idx]:
+                # search incide the index for the indexes
+                for row in index_name:
+                    # if exist in the row index which has the type the HashIndex and the operator is '=='
+                    if 'HashIndex' in row and operator == '==':
+                        # load the object and search for the value
+                        hi = self._load_idx(row[2])
+                        table = self.tables[table_name]._select_where_with_hashindexing(hi, columns, condition)
+                        break
+                    elif 'Btree' in row:
+                        # if exists btree indexing load the object
+                        bt = self._load_idx(row[2])
+                        table = self.tables[table_name]._select_where_with_btree(columns, bt, condition, order_by, asc, top_k)
+                        break
+            else:
+                for row in index_name:
+                    # if exist a row which the type is 'HashIndex' , the condition is about for that index
+                    #   and the operator is '=='
+                    if operator == '==' and 'HashIndex' in row and (condition_left in row or condition_right in row):
+                        hi = self._load_idx(row[2])
+                        table = self.tables[table_name]._select_where_with_hashindexing(hi, columns, condition)
+                        break
         else:
             table = self.tables[table_name]._select_where(columns, condition, order_by, asc, top_k)
         self.unlock_table(table_name)
@@ -537,12 +555,7 @@ class Database:
         self.tables['meta_insert_stack']._update_row(new_stack, 'indexes', f'table_name=={table_name}')
 
     # indexes
-    # <!> Ilias <!>
-    # i change the arguments for create index
-    # now automatically with the name of the table and the type of indexing you want
-    # you create the tables
-    # i did it because the a loose the index name of each type of index for each table
-    def create_index(self, table_name, index_type='Btree'):
+    def create_index(self, table_name, index_name, column_name=None, index_type='Btree'):
         '''
         Create an index on a specified table with a given name.
         Important: An index can only be created on a primary key. Thus the user does not specify the column
@@ -550,37 +563,34 @@ class Database:
         table_name -> table's name (needs to exist in database)
         index_name -> name of the created index
         '''
-        if self.tables[table_name].pk_idx is None:  # if no primary key, no index
-            print('## ERROR - Cant create index. Table has no primary key.')
-            return
-        index_name = table_name+index_type
+        # handle the exceptions for the indexes
+        if self.tables[table_name].pk_idx is None:
+            if index_type == 'Btree':  # if no primary key, no index
+                print('## ERROR - Cant create index. Table has no primary key.')
+                return
+            elif column_name in None and index_type == 'HashIndex':
+                # if the column_name is none and the table has not primary key
+                print("## ERROR - Cant create HashIndex. You must select a column.")
+                return
+        # check if the  index_name exists
         if index_name not in self.tables['meta_indexes'].index_name:
-            # currently only btree is supported. This can be changed by adding another if.
-            if index_type == 'Btree':
+            # insert a record with the name of the index and the table on which it's created to the meta_indexes table
+            self.tables['meta_indexes']._insert([table_name, column_name, index_name, index_type])
+            if index_type == 'HashIndex':
+                print('Creating Hash index.')
+                # crate the actual index
+                self._construct_hashtable(table_name, column_name, index_name)
+                self.save()
+            elif index_type == 'Btree':
                 print('Creating Btree index.')
-                # insert a record with the name of the index and the table on which it's created to the meta_indexes table
-                self.tables['meta_indexes']._insert([table_name, index_name])
                 # crate the actual index
                 self._construct_index(table_name, index_name)
                 self.save()
-            elif index_type == 'HashIndex':
-                print('Creating Hash index.')
-                # insert a record with the name of the index and the table on which it's created to the meta_indexes table
-                self.tables['meta_indexes']._insert([table_name, index_name])
-                # crate the actual index
-                self._construct_hashtable(table_name, index_name)
-                self.save()
-                # #insert a record with the name of the index and the table on which it's created to the meta_indexes table
-                #
-                # self.tables['meta_indexes']._insert([table_name, index_name])
-                # # crate the actual index
-                # self._construct_index(table_name, index_name)
-                # self.save()
         else:
             print('## ERROR - Cant create index. Another index with the same name already exists.')
             return
 
-    def _construct_hashtable(self, table_name, index_name):
+    def _construct_hashtable(self, table_name, column, index_name):
         '''
                 Construct Hash Indexing on a table and save.
 
@@ -588,8 +598,22 @@ class Database:
                 index_name -> name of the created index
                 '''
         h = HashIndex(8)
-        # for each record in the primary key of the table, insert its value and index to the btree
-        for idx, key in enumerate(self.tables[table_name].columns[self.tables[table_name].pk_idx]):
+        # here i find the number-column for the table
+        for i in range(len(self.tables[table_name].column_names)):
+            if column in self.tables[table_name].column_names[i]:
+                # when i find it (is the "i")
+                # i load to the dict all the data
+                dict = {(key): (self.tables[table_name].data[:][i] if key == "data" else value) for
+                        key, value in self.tables[table_name].__dict__.items()}
+                break
+        # here i make the list data which is a list with the index and the data
+        # we need it for the for loup
+        data = []
+        for i in range(len(dict[column])):
+            data.append([i, dict[column][i]])
+        # we need to set the new column names/types and no of columns, since we might
+        # only return some columns
+        for idx, key in data:
             h.insert(key, idx)
         # save the btree
         self._save_index(index_name, h)
