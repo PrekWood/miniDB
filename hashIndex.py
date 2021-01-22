@@ -22,8 +22,6 @@ class HashIndex:
     def __init__(self, max_bucket_size=5):
         self.max_bucket_size = max_bucket_size
         self.bucket_list = [Bucket()]
-        self.row = []
-        self.count_buckets = 0
         self.hashfuction_exp = 0
 
     def hashFunction(self, input):
@@ -40,7 +38,7 @@ class HashIndex:
                 templist.append(row)
 
         # we add the value (this was the reason for overflow)
-        templist.append([value,idx])
+        templist.append([value, idx])
 
         # we clear the buckets
         self.bucket_list.clear()
@@ -52,7 +50,7 @@ class HashIndex:
         # we insert all the elements
         # we are sure that we dont have overflow situation
         for value in templist:
-            h =self.hashFunction(value[0])
+            h = self.hashFunction(value[0])
             self.bucket_list[h].insert(value)
         return self.bucket_list
 
@@ -72,7 +70,7 @@ class HashIndex:
             print("Error with insert")
 
     def find(self, value):
-        if self.bucket_list == [[]]:
+        if len(self.bucket_list) == 1 and self.bucket_list[0].data == []:
             print("Hash Table is empty, create first")
             return
         else:
