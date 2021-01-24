@@ -581,3 +581,97 @@ class Database:
         index = pickle.load(f)
         f.close()
         return index
+
+     def show_hashindex(self, index_name):
+        '''
+            hash index visualization
+        '''
+
+        # get table data
+        table_row = self.select('meta_indexes', '*', f'index_name=={index_name}', return_object=True).data
+        if(table_row == []):
+            print("ERROR - Invalid index name.")
+            return
+        table_name = table_row[0][0]
+        table_data = self.tables[table_name].data
+
+        # get hash index data
+        hash_index = self._load_idx(index_name)
+
+        diagram = Digraph('structs', node_attr={'shape': 'plaintext'})
+
+        # create index struct
+        hash_buckets = hash_index.bucket_list
+        for idx, bucket in enumerate(hash_buckets):
+            with diagram.subgraph(name='cluster_'+str(idx)) as bucket_container:
+                bucket_container.attr(label='Bucket #'+str(idx))
+                bucket_container.attr(color='white')
+                bucket_struct = '<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="4">'
+                for row in bucket.data:
+                    bucket_struct += '<TR><TD COLSPAN="3">' + str(row[0]) + '</TD><TD COLSPAN="3" PORT="'+str(row[1])+'">'+\
+                                     str(row[1]) + '</TD></TR>'
+                bucket_struct += '</TABLE>>'
+                bucket_container.node("bucket"+str(idx), bucket_struct, )
+
+        # create table struct
+        with diagram.subgraph(name='cluster_table') as table_container:
+            table_container.attr(label= table_name+' Table')
+            table_container.attr(color='white')
+            table_struct = '<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="4">'
+            if len(table_data) > 20:
+                for row_position, row in enumerate(table_data[:10]):
+                    table_struct += '<TR>'
+                    for cell_count, cell in enumerate(row):
+                        if cell_count == 0:
+                            table_struct += '<TD COLSPAN="3" PORT="' + str(row_position) + '">' + str(cell) + '</TD>'
+                        else:
+                            table_struct += '<TD COLSPAN="3">' + str(cell) + '</TD>'
+                    table_struct += '</TR>'
+
+                table_struct += '<TR>'
+                for i in range(len(table_data[0])):
+                    table_struct += '<TD COLSPAN="3">...</TD>'
+                table_struct += '</TR>'
+
+                for row_position_reverse, row in enumerate(table_data[-10:]):
+                    table_struct += '<TR>'
+                    for cell_count, cell in enumerate(row):
+                        if cell_count == 0:
+                            table_struct += '<TD COLSPAN="3" PORT="' + str(len(table_data)-row_position_reverse) + '">' + str(cell) + '</TD>'
+                        else:
+                            table_struct += '<TD COLSPAN="3">' + str(cell) + '</TD>'
+                    table_struct += '</TR>'
+            else:
+                for row_position, row in enumerate(table_data):
+                    table_struct += '<TR>'
+                    for cell_count, cell in enumerate(row):
+                        if cell_count == 0:
+                            table_struct += '<TD COLSPAN="3" PORT="'+str(row_position)+'">' + str(cell) + '</TD>'
+                        else:
+                            table_struct += '<TD COLSPAN="3">' + str(cell) + '</TD>'
+
+                        # 2nd alternative
+                        # if cell_count == 0 and row_position%2 == 0:
+                        #     table_struct += '<TD COLSPAN="3" PORT="' + str(row_position) + '">' + str(cell) + '</TD>'
+                        # elif cell_count == len(row)-1 and row_position%2 == 1:
+                        #     table_struct += '<TD COLSPAN="3" PORT="' + str(row_position) + '">' + str(cell) + '</TD>'
+                        # else:
+                        #     table_struct += '<TD COLSPAN="3">' + str(cell) + '</TD>'
+
+                    table_struct += '</TR>'
+            table_struct += '</TABLE>>'
+            table_container.node('table', table_struct)
+
+
+        # create arrows
+        edges = []
+        for bucket_counter, bucket in enumerate(hash_buckets):
+            for row in bucket.data:
+                if row[1] < 10 or row[1] > len(table_data) - 10:
+                    edges.append([
+                        'bucket'+str(bucket_counter)+':'+str(row[1]),
+                        'table:'+str(row[1]),
+                    ])
+
+        diagram.edges(edges)
+        diagram.render('hashindex.gv', view=True)
