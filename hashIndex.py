@@ -1,21 +1,84 @@
-import hashlib
+def convert_str_to_int(value):
+    try:
+        return int(value)
+    except:
+        sum = 0
+        for i in value:
+            sum += ord(i)
+        return sum
 
 
-def hasfuct(i):
-    return i % 2
+class Bucket:
+    def __init__(self, data=None):
+        if data is None:
+            self.data = []
+
+    def insert(self, row):
+        self.data.append(row)
 
 
-hash_table = [[] for _ in range(2)]
+class HashIndex:
 
-data = {'25': 'USA',
-        '20': 'India',
-        '10': 'Nepal',
-        '22': 'Greece'}
+    def __init__(self, max_bucket_size=5):
+        self.max_bucket_size = max_bucket_size
+        self.bucket_list = [Bucket()]
+        self.hashfuction_exp = 0
 
-for i in data:
-    bucket = hasfuct(int(i))
-    if len(hash_table[bucket]) == 2:
-        print("bucket :", bucket, " is full")
-    else:
-        hash_table[bucket].append(i)
-print(hash_table)
+    def hashFunction(self, input):
+        return input % (2 ** self.hashfuction_exp)
+
+    def __balancebuckets__(self, value, idx):
+
+        # the templist has all the values from the bucket
+        self.hashfuction_exp += 1
+
+        templist = []
+        for bucket in self.bucket_list:
+            for row in bucket.data:
+                templist.append(row)
+
+        # we add the value (this was the reason for overflow)
+        templist.append([value, idx])
+
+        # we clear the buckets
+        self.bucket_list.clear()
+
+        # we create new buckets
+        for i in range(2 ** self.hashfuction_exp):
+            self.bucket_list.append(Bucket())
+
+        # we insert all the elements
+        # we are sure that we dont have overflow situation
+        for value in templist:
+            h = self.hashFunction(value[0])
+            self.bucket_list[h].insert(value)
+        return self.bucket_list
+
+    def insert(self, value, idx):
+        # if the value is string
+        if type(value) == str:
+            value = convert_str_to_int(value)
+        # if the bucket is not full insert the element
+        try:
+            if len(self.bucket_list[self.hashFunction(value)].data) < self.max_bucket_size:
+                self.bucket_list[value % (2 ** self.hashfuction_exp)].insert([value, idx])
+            else:
+                # if is full create new buckets and balance the elements
+                self.bucket_list = self.__balancebuckets__(value, idx)
+            return self.bucket_list
+        except:
+            print("Error with insert")
+
+    def find(self, value):
+        if len(self.bucket_list) == 1 and self.bucket_list[0].data == []:
+            print("Hash Table is empty, create first")
+            return
+        else:
+            if type(value) == str:
+                value = convert_str_to_int(value)
+            # finds the right bucket and search every column-list
+            idx = []
+            for data in self.bucket_list[self.hashFunction(value)].data:
+                if value in data:
+                    idx.append(data[1])
+            return idx

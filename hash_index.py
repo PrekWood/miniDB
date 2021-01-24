@@ -2,9 +2,10 @@ from database import Database
 import sys
 import copy
 
+
 class Bucket:
     def __init__(self, max_bucket_size=64, data=None):
-        if(data == None):
+        if (data == None):
             self.data = []
         else:
             self.data = data
@@ -15,8 +16,9 @@ class Bucket:
         self.data.append(row)
         self.size = sys.getsizeof(self.data)
 
+
 class HashIndex:
-    def __init__(self, db, max_bucket_size=64):
+    def __init__(self, db, max_bucket_size=64, type_hashfuc='byte'):
         # todo: rename count_buckets σε κάτι σαν hashfunctionN γιατι δεν ειναι όντως το count των buckets αλλα το %2^n της hashing function
         # todo: address table συζητηση
 
@@ -25,12 +27,13 @@ class HashIndex:
 
         self.db = db
         self.max_bucket_size = max_bucket_size
+        self.type_hashfuc = type_hashfuc
         self.bucket_list = []
         self.row = []
         self.count_buckets = 0
 
     def hashFunction(self, input):
-        return input % (2 ** self.count_buckets)
+        return input % (2 ** len(self.bucket_list))
 
     def createHashtable(self, table, column=0):
         #todo: to be called by constuctor on primary key
@@ -73,6 +76,16 @@ class HashIndex:
 
         return self.bucket_list
 
+    '''def _is_full(self, value, bucket_to_insert):
+        if self.type_hashfuc == 'byte':
+            # we use deepcopy because python's simple copying makes it so that both variables point to the same
+            # collection of memory. So this calculation would have been imposible without changing the object's data property
+            bucket_data = copy.deepcopy(bucket_to_insert.data)
+            bucket_data.append(value)
+            bucket_size_after_insertion = sys.getsizeof(bucket_data)
+            return bucket_size_after_insertion <= bucket_to_insert.max_bucket_size
+        elif self.type_hashfuc == 'row':
+            return len(bucket_to_insert.data) < bucket_to_insert.max_bucket_size'''
 
     def insert(self, value):
         # if the bucket is not full insert the element
@@ -87,7 +100,7 @@ class HashIndex:
             bucket_data.append(value)
             bucket_size_after_insertion = sys.getsizeof(bucket_data)
 
-            if(bucket_size_after_insertion <= bucket_to_insert.max_bucket_size):
+            if (bucket_size_after_insertion <= bucket_to_insert.max_bucket_size):
                 bucket_to_insert.insert(value)
             else:
                 self.bucket_list = self._balanceBuckets(value)
@@ -107,11 +120,17 @@ class HashIndex:
                 return row[1]
 
 
+db = Database("smdb", True)
+# print(db.unlock_table('users'))
 
-db = Database("test_db", True)
-print(db.unlock_table('users'))
+db.select('department', '*')
+
 h = HashIndex(db, 64)
-h.createHashtable("users")
+h.createHashtable('department')
+print("the bucket list:")
+for bucket in h.bucket_list:
+    print(bucket.data)
+# h.createHashtable("users")
 
 # print(h.count_buckets)
 # print(len(h.bucketlist))
@@ -121,5 +140,5 @@ h.createHashtable("users")
 # print("~~BUCKET LIST~~")
 # print(h.bucketlist)
 # insert a value
-value = 10
-print("find the value ", value, " is the row", h.search(value))
+# value = 10
+# print("find the value ", value, " is the row", h.search(value))
