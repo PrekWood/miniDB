@@ -7,6 +7,7 @@ from btree import Btree
 import shutil
 from hashIndex import HashIndex
 from misc import split_condition
+from graphviz import Digraph
 
 
 class Database:
@@ -235,10 +236,15 @@ class Database:
             print('ABORTED')
         # sleep(2)
         self._update_meta_insert_stack_for_tb(table_name, insert_stack[:-1])
+
         if lock_load_save:
             self.unlock_table(table_name)
             self._update()
             self.save()
+        # check if the table has index
+        if self._has_index(table_name):
+            # update it
+            self._update_hashindex(table_name, row, len(self.tables[table_name].data)-1)
 
     def update(self, table_name, set_value, set_column, condition):
         '''
@@ -676,10 +682,19 @@ class Database:
         f.close()
         return index
 
-     def show_hashindex(self, index_name):
-        '''
-            hash index visualization
-        '''
+    def _update_hashindex(self, table_name, row, table_pointer):
+        index_name = self.select('meta_indexes', '*', f'table_name=={table_name}', return_object=True).data
+        # updates all the indexes for this table
+        for index_row in index_name:
+            for idx, column in enumerate(self.tables[table_name].column_names):
+                if column in index_row:
+                    hi = self._load_idx(index_row[2])
+                    hi.insert(row[idx], table_pointer)
+                    self._save_index(index_row[2], hi)
+                    break
+
+    def show_hashindex(self, index_name):
+        '''hash index visualization'''
 
         # get table data
         table_row = self.select('meta_indexes', '*', f'index_name=={index_name}', return_object=True).data
