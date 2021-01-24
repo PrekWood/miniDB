@@ -33,7 +33,7 @@ class HashIndex:
         self.count_buckets = 0
 
     def hashFunction(self, input):
-        return input % (2 ** self.count_buckets)
+        return input % (2 ** len(self.bucket_list))
 
     def createHashtable(self, table, column=0):
         #todo: to be called by constuctor on primary key
