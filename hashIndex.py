@@ -21,13 +21,13 @@ class HashIndex:
 
     def __init__(self, max_bucket_size=5):
         self.max_bucket_size = max_bucket_size
-        self.bucket_list = [Bucket()]
+        self.bucket_list = []
         self.hashfuction_exp = 0
 
     def hashFunction(self, input):
         return input % (2 ** self.hashfuction_exp)
 
-    def __balancebuckets__(self, value, idx):
+    def _balanceBuckets(self, value, idx):
 
         # the templist has all the values from the bucket
         self.hashfuction_exp += 1
@@ -55,6 +55,10 @@ class HashIndex:
         return self.bucket_list
 
     def insert(self, value, idx):
+
+        if self.bucket_list == []:
+            self.bucket_list = [Bucket()]
+
         # if the value is string
         if type(value) == str:
             value = convert_str_to_int(value)
@@ -64,7 +68,7 @@ class HashIndex:
                 self.bucket_list[value % (2 ** self.hashfuction_exp)].insert([value, idx])
             else:
                 # if is full create new buckets and balance the elements
-                self.bucket_list = self.__balancebuckets__(value, idx)
+                self.bucket_list = self._balanceBuckets(value, idx)
             return self.bucket_list
         except:
             print("Error with insert")
