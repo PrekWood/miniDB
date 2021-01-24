@@ -397,37 +397,46 @@ class Database:
         save_as -> The name that will be used to save the resulting table in the database. Def: None (no save)
         return_object -> If true, the result will be a table object (usefull for internal usage). Def: False (the result will be printed)
         '''
-        condition_column = None
         self.load(self.savedir)
         if self.is_locked(left_table_name) or self.is_locked(right_table_name):
             print(f'Table/Tables are currently locked')
             return
 
-        res = self.tables[left_table_name]._inner_join(self.tables[right_table_name], condition)
-        # ---
-        # TODO: Check the left and the right table for has index
-        # best way is to do the same as select
-        # 1.check
-        # 2.load the object-HashIndex
-        # 3.find the same values for primary keys for both tables
-        # 4.print a table with the fields from tow tables
-        # ---
-        '''
-        # -----------------------------------
-        # check if the left table has hash index
-        if self._has_index(left_table_name) and condition_column == self.tables[left_table_name].column_names[
-            self.tables[left_table_name].pk_idx]:
-            index_name_left = self.select('meta_indexes', '*', f'table_name=={left_table_name}', return_object=True).index_name[:]
-            # check if the right table has hash index
-            if  self._has_index(right_table_name) and condition_column == self.tables[right_table_name].column_names[
-            self.tables[right_table_name].pk_idx]:
-                index_name_right = self.select('meta_indexes', '*', f'table_name=={right_table_name}', return_object=True).index_name[:]
-                if "hashindex" in index_name_left and "hashindex" in index_name_right:
-                    # load the Hash Index object
-                    hi = self._load_idx("hashindex")
-                    # table = self.tables[table_name]._select_where_with_hashindexing(hi, columns, condition)
-        # ------------------------------
-        '''
+        self.lockX_table(left_table_name)
+        self.lockX_table(right_table_name)
+        # check if one table has index
+        if self._has_index(left_table_name) or self._has_index(right_table_name):
+            condition_left, operator, condition_right = split_condition(condition)
+            # collect all the indexes from the the specific table
+            left_index_name = self.select('meta_indexes', '*', f'table_name=={left_table_name}', return_object=True).data
+            right_index_name = self.select('meta_indexes', '*', f'table_name=={right_table_name}', return_object=True).data
+            hi = None
+            # check for the left table
+            for row in left_index_name:
+                # if we find the index for the specific column
+                if left_table_name in row or 'HashIndex' in row or condition_left in row:
+                    # load the index and call the _inner_join
+                    hi = self._load_idx(row[2])
+                    # the table that it doesnt has index we use it like 'object'
+                    res = self.tables[right_table_name]._inner_join(self.tables[left_table_name], condition, hi)
+                    break
+            # if we didnt find the index
+            if hi is None:
+                # check for the right table and do the same but for the right table
+                for row in right_index_name:
+                    if right_table_name in row or 'HashIndex' in row or condition_right in row:
+                        hi = self._load_idx(row[2])
+                        res = self.tables[left_table_name]._inner_join(self.tables[right_table_name], condition, hi)
+                        break
+                # if both tables dont have index call the original _inner_join
+                if hi is None:
+                    res = self.tables[left_table_name]._inner_join(self.tables[right_table_name], condition)
+        else:
+            res = self.tables[left_table_name]._inner_join(self.tables[right_table_name], condition)
+
+        self.unlock_table(left_table_name)
+        self.unlock_table(right_table_name)
+
         if save_as is not None:
             res._name = save_as
             self.table_from_object(res)
@@ -568,11 +577,11 @@ class Database:
             if index_type == 'Btree':  # if no primary key, no index
                 print('## ERROR - Cant create index. Table has no primary key.')
                 return
-            elif column_name in None and index_type == 'HashIndex':
+            elif column_name is None and index_type == 'HashIndex':
                 # if the column_name is none and the table has not primary key
                 print("## ERROR - Cant create HashIndex. You must select a column.")
                 return
-        # check if the  index_name exists
+        # check if the index_name exists
         if index_name not in self.tables['meta_indexes'].index_name:
             # insert a record with the name of the index and the table on which it's created to the meta_indexes table
             self.tables['meta_indexes']._insert([table_name, column_name, index_name, index_type])
