@@ -93,7 +93,8 @@ class Database:
         self._update_meta_locks()
         self._update_meta_insert_stack()
 
-    def create_table(self, name=None, column_names=None, column_types=None, primary_key=None, load=None, create_hashindex=False):
+    def create_table(self, name=None, column_names=None, column_types=None, primary_key=None, load=None,
+                     create_hashindex=False):
         '''
         This method create a new table. This table is saved and can be accessed by
         db_object.tables['table_name']
@@ -112,8 +113,9 @@ class Database:
         print(f'New table "{name}"')
 
         if create_hashindex and primary_key is not None:
-            self.create_index(table_name=name, index_name=name+"_"+primary_key, index_type="hashindex", column_name=primary_key)
-            print("Hash index created by the name of '"+name+"_"+primary_key+"'")
+            self.create_index(table_name=name, index_name=name + "_" + primary_key, index_type="hashindex",
+                              column_name=primary_key)
+            print("Hash index created by the name of '" + name + "_" + primary_key + "'")
 
         self._update()
         self.save()
@@ -138,6 +140,10 @@ class Database:
 
         # self._update()
         self.save()
+        if self._has_index(table_name):
+            list_of_index_names = self.select('meta_indexes', '*', f'table_name=={table_name}', return_object=True).data
+            for index_name in list_of_index_names:
+                self.drop_index(index_name[2])
 
     def table_from_csv(self, filename, name=None, column_types=None, primary_key=None):
         '''
@@ -249,12 +255,7 @@ class Database:
         # check if the table has index
         if self._has_index(table_name):
             # update it
-            self._update_hashindex(table_name, row, len(self.tables[table_name].data)-1)
-
-        # check if the table has index
-        if self._has_index(table_name):
-            # update it
-            self._update_hashindex(table_name, row, len(self.tables[table_name].data) - 1)
+            self._update_hashindex(table_name, row, type='insert')
 
     def update(self, table_name, set_value, set_column, condition):
         '''
@@ -293,7 +294,7 @@ class Database:
         if self.is_locked(table_name):
             return
         self.lockX_table(table_name)
-        deleted = self.tables[table_name]._delete_where(condition)
+        deleted, deleted_rows = self.tables[table_name]._delete_where(condition)
         self.unlock_table(table_name)
         self._update()
         self.save()
@@ -301,6 +302,8 @@ class Database:
         if table_name[:4] != 'meta':
             self._add_to_insert_stack(table_name, deleted)
         self.save()
+        if self._has_index(table_name):
+            self._update_hashindex(table_name, deleted_rows, type='delete')
 
     def select(self, table_name, columns, condition=None, order_by=None, asc=False, \
                top_k=None, save_as=None, return_object=False):
@@ -349,7 +352,8 @@ class Database:
                     elif 'btree' in row:
                         # if exists btree indexing load the object
                         bt = self._load_idx(row[2])
-                        table = self.tables[table_name]._select_where_with_btree(columns, bt, condition, order_by, asc, top_k)
+                        table = self.tables[table_name]._select_where_with_btree(columns, bt, condition, order_by, asc,
+                                                                                 top_k)
                         break
             else:
                 for row in index_name:
@@ -605,7 +609,7 @@ class Database:
         # check if the index_name exists
         if index_name not in self.tables['meta_indexes'].index_name:
             # insert a record with the name of the index and the table on which it's created to the meta_indexes table
-            if index_type_formated in ['hashindex','btree']:
+            if index_type_formated in ['hashindex', 'btree']:
                 self.tables['meta_indexes']._insert([table_name, column_name, index_name, index_type_formated])
                 if index_type_formated == 'hashindex':
                     print('Creating Hash index.')
@@ -632,7 +636,7 @@ class Database:
         index_name -> name of the created index
         '''
         h = HashIndex(8)
-        
+
         # find column index
         column_names = self.tables[table_name].column_names
         if column in column_names:
@@ -701,7 +705,7 @@ class Database:
 
         # get table data
         table_row = self.select('meta_indexes', '*', f'index_name=={index_name}', return_object=True).data
-        if(table_row == []):
+        if (table_row == []):
             print("ERROR - Invalid index name.")
             return
         table_name = table_row[0][0]
@@ -715,19 +719,20 @@ class Database:
         # create index struct
         hash_buckets = hash_index.bucket_list
         for idx, bucket in enumerate(hash_buckets):
-            with diagram.subgraph(name='cluster_'+str(idx)) as bucket_container:
-                bucket_container.attr(label='Bucket #'+str(idx))
+            with diagram.subgraph(name='cluster_' + str(idx)) as bucket_container:
+                bucket_container.attr(label='Bucket #' + str(idx))
                 bucket_container.attr(color='white')
                 bucket_struct = '<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="4">'
                 for row in bucket.data:
-                    bucket_struct += '<TR><TD COLSPAN="3">' + str(row[0]) + '</TD><TD COLSPAN="3" PORT="'+str(row[1])+'">'+\
+                    bucket_struct += '<TR><TD COLSPAN="3">' + str(row[0]) + '</TD><TD COLSPAN="3" PORT="' + str(
+                        row[1]) + '">' + \
                                      str(row[1]) + '</TD></TR>'
                 bucket_struct += '</TABLE>>'
-                bucket_container.node("bucket"+str(idx), bucket_struct, )
+                bucket_container.node("bucket" + str(idx), bucket_struct, )
 
         # create table struct
         with diagram.subgraph(name='cluster_table') as table_container:
-            table_container.attr(label= table_name+' Table')
+            table_container.attr(label=table_name + ' Table')
             table_container.attr(color='white')
             table_struct = '<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="4">'
             if len(table_data) > 20:
@@ -749,7 +754,8 @@ class Database:
                     table_struct += '<TR>'
                     for cell_count, cell in enumerate(row):
                         if cell_count == 0:
-                            table_struct += '<TD COLSPAN="3" PORT="' + str(len(table_data)-row_position_reverse) + '">' + str(cell) + '</TD>'
+                            table_struct += '<TD COLSPAN="3" PORT="' + str(
+                                len(table_data) - row_position_reverse) + '">' + str(cell) + '</TD>'
                         else:
                             table_struct += '<TD COLSPAN="3">' + str(cell) + '</TD>'
                     table_struct += '</TR>'
@@ -758,7 +764,7 @@ class Database:
                     table_struct += '<TR>'
                     for cell_count, cell in enumerate(row):
                         if cell_count == 0:
-                            table_struct += '<TD COLSPAN="3" PORT="'+str(row_position)+'">' + str(cell) + '</TD>'
+                            table_struct += '<TD COLSPAN="3" PORT="' + str(row_position) + '">' + str(cell) + '</TD>'
                         else:
                             table_struct += '<TD COLSPAN="3">' + str(cell) + '</TD>'
 
@@ -774,31 +780,42 @@ class Database:
             table_struct += '</TABLE>>'
             table_container.node('table', table_struct)
 
-
         # create arrows
         edges = []
         for bucket_counter, bucket in enumerate(hash_buckets):
             for row in bucket.data:
                 if row[1] < 10 or row[1] > len(table_data) - 10:
                     edges.append([
-                        'bucket'+str(bucket_counter)+':'+str(row[1]),
-                        'table:'+str(row[1]),
+                        'bucket' + str(bucket_counter) + ':' + str(row[1]),
+                        'table:' + str(row[1]),
                     ])
 
         diagram.edges(edges)
         diagram.render('hashindex.gv', view=True)
 
-    def _update_hashindex(self, table_name, row, table_pointer):
-        index_name = self.select('meta_indexes', '*', f'table_name=={table_name}', return_object=True).data
-        # updates all the indexes for this table
-        for index_row in index_name:
-            for idx, column in enumerate(self.tables[table_name].column_names):
-                if column in index_row:
-                    hi = self._load_idx(index_row[2])
-                    hi.insert(row[idx], table_pointer)
-                    self._save_index(index_row[2], hi)
-                    break
-
+    def _update_hashindex(self, table_name, row, type='insert'):
+        """
+        Updates the indexes when the table is changed
+        @param table_name:
+        @param row: the new row which is added to table
+        @param type: insert or delete elements
+        """
+        if len(row) != 0:
+            index_name = self.select('meta_indexes', '*', f'table_name=={table_name}', return_object=True).data
+            # updates all the indexes for this table
+            for index_row in index_name:
+                for idx, column in enumerate(self.tables[table_name].column_names):
+                    if column in index_row:
+                        hi = self._load_idx(index_row[2])
+                        if type == 'insert':
+                            hi.insert(row[idx], len(self.tables[table_name].data) - 1)
+                        elif type == 'delete':
+                            # when type == 'delete' the row is a list that
+                            # every cell is a deleted row from the table
+                            for i in row:
+                                hi.delete(i[idx])
+                        self._save_index(index_row[2], hi)
+                        break
 
     def drop_index(self, index_name):
         index_record = self.select('meta_indexes', '*', f'index_name=={index_name}', return_object=True).data
@@ -806,11 +823,10 @@ class Database:
             print("ERROR - Index doesn't exist")
 
         db_name = self._name
-        index_path = './/dbdata//'+db_name+'_db//indexes//meta_'+index_name+'_index.pkl'
+        index_path = './/dbdata//' + db_name + '_db//indexes//meta_' + index_name + '_index.pkl'
         try:
             self.delete('meta_indexes', f'index_name=={index_name}')
             os.remove(index_path)
-            print("Index was removed successfully.")
+            print("Index : " + index_name + " was removed successfully.")
         except:
             print("ERROR - Something went wrong")
-

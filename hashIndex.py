@@ -86,3 +86,15 @@ class HashIndex:
                 if value in data:
                     idx.append(data[1])
             return idx
+
+    def delete(self, value):
+        if self.bucket_list == []:
+            print("Hash Table is empty, create first")
+            return
+        else:
+            if type(value) == str:
+                value = convert_str_to_int(value)
+            # finds the right bucket and search every column-list
+            for data in self.bucket_list[self.hashFunction(value)].data:
+                if value in data:
+                    self.bucket_list[self.hashFunction(value)].data.remove(data)

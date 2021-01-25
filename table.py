@@ -2,7 +2,6 @@ from __future__ import annotations
 from tabulate import tabulate
 from hashIndex import HashIndex
 import pickle
-import os
 from misc import get_op, split_condition
 
 
@@ -149,16 +148,16 @@ class Table:
         column_name, operator, value = self._parse_condition(condition)
 
         indexes_to_del = []
-
+        deleted_rows = []
         column = self.columns[self.column_names.index(column_name)]
         for index, row_value in enumerate(column):
             if get_op(operator, row_value, value):
+                deleted_rows.append(self.data[index])
                 indexes_to_del.append(index)
 
         # we pop from highest to lowest index in order to avoid removing the wrong item
         # since we dont delete, we dont have to to pop in that order, but since delete is used
         # to delete from meta tables too, we still implement it.
-
         for index in sorted(indexes_to_del, reverse=True):
             if self._name[:4] != 'meta':
                 # if the table is not a metatable, replace the row with a row of nones
@@ -167,9 +166,9 @@ class Table:
                 self.data.pop(index)
 
         self._update()
-        print(f"Deleted {len(indexes_to_del)} rows")
+        print(f"Deleted {len(indexes_to_del)} rows ["+self._name+"]")
         # we have to return the deleted indexes, since they will be appended to the insert_stack
-        return indexes_to_del
+        return indexes_to_del, deleted_rows
 
     def _select_where(self, return_columns, condition=None, order_by=None, asc=False, top_k=None):
         '''
