@@ -358,8 +358,7 @@ class Table:
         # this code is dumb on purpose... it needs to illustrate the underline technique
         # for each value in left column and right column, if condition, append the corresponding row to the new table
 
-        # ----
-        # checks if the hi object isnt null
+        # checks if the hi object isn't null
         # and find with Hashindex the idx from the right table
         # ! the hi object is for the right table !
         if hi is not None:

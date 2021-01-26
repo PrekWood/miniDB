@@ -255,7 +255,7 @@ class Database:
         # check if the table has index
         if self._has_index(table_name):
             # update it
-            self._update_hashindex(table_name, row, type='insert')
+            self._update_hashindex(table_name, row, update_type='insert')
 
     def update(self, table_name, set_value, set_column, condition):
         '''
@@ -303,7 +303,7 @@ class Database:
             self._add_to_insert_stack(table_name, deleted)
         self.save()
         if self._has_index(table_name):
-            self._update_hashindex(table_name, deleted_rows, type='delete')
+            self._update_hashindex(table_name, deleted_rows, update_type='delete')
 
     def select(self, table_name, columns, condition=None, order_by=None, asc=False, \
                top_k=None, save_as=None, return_object=False):
@@ -328,24 +328,17 @@ class Database:
         if self.is_locked(table_name):
             return
         self.lockX_table(table_name)
-        condition_left = operator = condition_right = None
-        # check if the table has index and if we have condition
         if condition is not None and self._has_index(table_name):
-            # break the condition
             condition_left, operator, condition_right = split_condition(condition)
-            # colecte all the indexes from the the specific table
             index_name = self.select('meta_indexes', '*', f'table_name=={table_name}', return_object=True).data
             # check all the possibilities for indexing:
             # ~btree can handle only the primary key
             # ~hash indexing can handle only equal operator
-            # if the condition is about the primary key
             if condition_left == self.tables[table_name].column_names[self.tables[table_name].pk_idx] \
                     or condition_right == self.tables[table_name].column_names[self.tables[table_name].pk_idx]:
-                # search incide the index for the indexes
                 for row in index_name:
                     # if exist in the row index which has the type the HashIndex and the operator is '=='
                     if 'hashindex' in row and operator == '==':
-                        # load the object and search for the value
                         hi = self._load_idx(row[2])
                         table = self.tables[table_name]._select_where_with_hashindexing(hi, columns, condition)
                         break
@@ -357,8 +350,6 @@ class Database:
                         break
             else:
                 for row in index_name:
-                    # if exist a row which the type is 'HashIndex' , the condition is about for that index
-                    #   and the operator is '=='
                     if operator == '==' and 'hashindex' in row and (condition_left in row or condition_right in row):
                         hi = self._load_idx(row[2])
                         table = self.tables[table_name]._select_where_with_hashindexing(hi, columns, condition)
@@ -424,10 +415,8 @@ class Database:
 
         self.lockX_table(left_table_name)
         self.lockX_table(right_table_name)
-        # check if one table has index
         if self._has_index(left_table_name) or self._has_index(right_table_name):
             condition_left, operator, condition_right = split_condition(condition)
-            # collect all the indexes from the the specific table
             left_indexes = self.select('meta_indexes', '*', f'table_name=={left_table_name}', return_object=True).data
             right_indexes = self.select('meta_indexes', '*', f'table_name=={right_table_name}', return_object=True).data
 
@@ -436,7 +425,6 @@ class Database:
             for row in left_indexes:
                 # if we find the index for the specific column
                 if 'hashindex' in row and condition_left in row:
-                    # load the index and call the _inner_join
                     hi = self._load_idx(row[2])
                     # the table that it doesnt has index we use it like 'object'
                     res = self.tables[right_table_name]._inner_join(self.tables[left_table_name], condition, hi)
@@ -444,7 +432,6 @@ class Database:
 
             # if we didnt find the index
             if hi is None:
-                # check for the right table and do the same but for the right table
                 for row in right_indexes:
                     if 'hashindex' in row and condition_right in row:
                         hi = self._load_idx(row[2])
@@ -767,15 +754,6 @@ class Database:
                             table_struct += '<TD COLSPAN="3" PORT="' + str(row_position) + '">' + str(cell) + '</TD>'
                         else:
                             table_struct += '<TD COLSPAN="3">' + str(cell) + '</TD>'
-
-                        # 2nd alternative
-                        # if cell_count == 0 and row_position%2 == 0:
-                        #     table_struct += '<TD COLSPAN="3" PORT="' + str(row_position) + '">' + str(cell) + '</TD>'
-                        # elif cell_count == len(row)-1 and row_position%2 == 1:
-                        #     table_struct += '<TD COLSPAN="3" PORT="' + str(row_position) + '">' + str(cell) + '</TD>'
-                        # else:
-                        #     table_struct += '<TD COLSPAN="3">' + str(cell) + '</TD>'
-
                     table_struct += '</TR>'
             table_struct += '</TABLE>>'
             table_container.node('table', table_struct)
@@ -793,7 +771,7 @@ class Database:
         diagram.edges(edges)
         diagram.render('hashindex.gv', view=True)
 
-    def _update_hashindex(self, table_name, row, type='insert'):
+    def _update_hashindex(self, table_name, row, update_type='insert'):
         """
         Updates the indexes when the table is changed
         @param table_name:
