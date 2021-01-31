@@ -246,6 +246,10 @@ class Database:
             self.unlock_table(table_name)
             self._update()
             self.save()
+        # check if the table has index
+        if self._has_index(table_name):
+            # update it
+            self._update_hashindex(table_name, row, len(self.tables[table_name].data)-1)
 
         # check if the table has index
         if self._has_index(table_name):
@@ -693,9 +697,7 @@ class Database:
         return index
 
     def show_hashindex(self, index_name):
-        '''
-            hash index visualization
-        '''
+        '''hash index visualization'''
 
         # get table data
         table_row = self.select('meta_indexes', '*', f'index_name=={index_name}', return_object=True).data
