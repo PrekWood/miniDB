@@ -39,22 +39,22 @@ You can **create** the HashIndex with this command:
 >> db_object.create_index(table_name, index_name, column_name, index_type = 'HashIndex')
 ```
 
-####Multiple indexes
+#### Multiple indexes
 
 Each table can have multiple Hash Indexes based on different columns.However, hash index search can only be applied if the condition is **"=="**.
 
-####Select / Join
+#### Select / Join
 
 On the **select** and **inner join** command, if there's a hash index on the column you're selecting/joining and the condition is "==",
 the code will automatically search on the index instead of the file. 
 
-####Update
+#### Update
 
 Every time you **Update** elements of the table, the hash index updates automatically.
 
 If you decide to drop the table, all the table's indexes will delete automatically.
 
-####Visualization
+#### Visualization
 
 You can see the buckets with the visualization tool graphviz with the command:
 ```python
