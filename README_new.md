@@ -29,7 +29,7 @@ the hash key to the position of the row on the table:
 
 ### Hash Function
 
-The hash f`unction that we used is the `VALUE mod (2**i)`,allocate the records based on
+The hash function that we used is the `VALUE mod (2**i)`,allocate the records based on
 value of `i`-less significant bits (i-LSB)
 
 ## How does it work?
