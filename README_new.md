@@ -61,7 +61,7 @@ You can see the buckets with the visualization tool graphviz with the command:
 >> db_object.show_hashindex(index_name)
 ```
 
-### Needed changes on the core of the project
+## Needed changes on the core of the project
 
 The meta_indexes table definition was changed.
 ```python 
